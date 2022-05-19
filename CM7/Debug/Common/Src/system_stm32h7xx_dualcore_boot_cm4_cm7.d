@@ -1,5 +1,5 @@
 Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.o: \
- D:/SIDEREUS/1\ -\ SOFTWARE/STM32/H755_GNC_001/Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.c \
  ../../Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h7xx.h \
  ../../Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h755xx.h \
  ../../Drivers/CMSIS/Include/core_cm7.h \

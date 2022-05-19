@@ -1,7 +1,7 @@
 spp.c:43:6:udp_receive_callback	32	static
 spp.c:61:6:udpClient_send_spp	16	static
 spp.c:82:6:udpClient_connect	8	static
-spp.c:107:6:SPP_TM_hdr_config	8	static
-spp.c:117:6:unpack_SPP_TC	96	static
-spp.c:167:6:pack_SPP_TM	16	static
-spp.c:187:6:parse_SPP_TC	8	static
+spp.c:108:6:SPP_TM_hdr_config	8	static
+spp.c:118:6:unpack_SPP_TC	96	static
+spp.c:168:6:pack_SPP_TM	16	static
+spp.c:188:6:parse_SPP_TC	8	static

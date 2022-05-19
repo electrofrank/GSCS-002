@@ -64,8 +64,8 @@ all: main-build
 main-build: H755_GNC_001_CM4.elf secondary-outputs
 
 # Tool invocations
-H755_GNC_001_CM4.elf: $(OBJS) $(USER_OBJS) D:\SIDEREUS\1\ -\ SOFTWARE\STM32\H755_GNC_001\CM4\STM32H755ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "H755_GNC_001_CM4.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\SIDEREUS\1 - SOFTWARE\STM32\H755_GNC_001\CM4\STM32H755ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="H755_GNC_001_CM4.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+H755_GNC_001_CM4.elf: $(OBJS) $(USER_OBJS) C:\Users\Francesco\ Gambino\OneDrive\Desktop\GSCS-002-master\CM4\STM32H755ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "H755_GNC_001_CM4.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Francesco Gambino\OneDrive\Desktop\GSCS-002-master\CM4\STM32H755ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="H755_GNC_001_CM4.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

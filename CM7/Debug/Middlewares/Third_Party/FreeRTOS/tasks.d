@@ -1,5 +1,5 @@
 Middlewares/Third_Party/FreeRTOS/tasks.o: \
- D:/SIDEREUS/1\ -\ SOFTWARE/STM32/H755_GNC_001/Middlewares/Third_Party/FreeRTOS/Source/tasks.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/FreeRTOS/Source/tasks.c \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
  ../Inc/FreeRTOSConfig.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \

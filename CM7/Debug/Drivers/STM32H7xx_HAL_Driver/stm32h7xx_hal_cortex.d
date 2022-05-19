@@ -1,5 +1,5 @@
 Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_cortex.o: \
- D:/SIDEREUS/1\ -\ SOFTWARE/STM32/H755_GNC_001/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
  ../Inc/stm32h7xx_hal_conf.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_rcc.h \

@@ -21,6 +21,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "lwip.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "FreeRTOS.h"
@@ -57,6 +58,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 LPTIM_HandleTypeDef hlptim1;
 LPTIM_HandleTypeDef hlptim2;
@@ -82,7 +85,9 @@ hx711_t LOAD_CELL1;
 hx711_t LOAD_CELL2;
 hx711_t LOAD_CELL3;
 hx711_t LOAD_CELL4;
-int thrust[4];
+
+
+float thrust[4];
 
 //Analog sensors variables
 
@@ -100,9 +105,11 @@ ip_addr_t gw;
 
 /* Private function prototypes -----------------------------------------------*/
 static void MX_GPIO_Init(void);
-static void MX_TIM15_Init(void);
 static void MX_TIM8_Init(void);
+static void MX_TIM15_Init(void);
 static void MX_TIM16_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_DMA_Init(void);
 static void MX_LPTIM1_Init(void);
 static void MX_LPTIM2_Init(void);
 void StartDefaultTask(void const * argument);
@@ -161,9 +168,11 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_TIM15_Init();
   MX_TIM8_Init();
+  MX_TIM15_Init();
   MX_TIM16_Init();
+  MX_ADC1_Init();
+  MX_DMA_Init();
   MX_LPTIM1_Init();
   MX_LPTIM2_Init();
   /* USER CODE BEGIN 2 */
@@ -180,9 +189,9 @@ int main(void)
 
 	// Calibrate The ADC On Power-Up For Better Accuracy
 	printf("GSCS-002 CM4 - Starting ADC1 calibration\n");
-//
-//	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY,
-//	ADC_SINGLE_ENDED);
+
+	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY,
+	ADC_SINGLE_ENDED);
 
 	printf("GSCS-002 CM4 - ADC1 calibration done\n");
 
@@ -211,19 +220,19 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 512);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of Sens_Acq_Task */
-  osThreadDef(Sens_Acq_Task, StartSens_Acq_Task, osPriorityIdle, 0, 1024);
+  osThreadDef(Sens_Acq_Task, StartSens_Acq_Task, osPriorityIdle, 0, 256);
   Sens_Acq_TaskHandle = osThreadCreate(osThread(Sens_Acq_Task), NULL);
 
   /* definition and creation of CommandRX_Task */
-  osThreadDef(CommandRX_Task, Start_CommandRX_Task, osPriorityIdle, 0, 256);
+  osThreadDef(CommandRX_Task, Start_CommandRX_Task, osPriorityIdle, 0, 512);
   CommandRX_TaskHandle = osThreadCreate(osThread(CommandRX_Task), NULL);
 
   /* definition and creation of TelemetryTX_Tas */
-  osThreadDef(TelemetryTX_Tas, Start_TelemetryTX_Task, osPriorityIdle, 0, 512);
+  osThreadDef(TelemetryTX_Tas, Start_TelemetryTX_Task, osPriorityIdle, 0, 256);
   TelemetryTX_TasHandle = osThreadCreate(osThread(TelemetryTX_Tas), NULL);
 
   /* definition and creation of ActuatorsContro */
@@ -249,6 +258,127 @@ int main(void)
 		//after initialization this task can be removed
 	}
   /* USER CODE END 3 */
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV8;
+  hadc1.Init.Resolution = ADC_RESOLUTION_16B;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.NbrOfConversion = 8;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_387CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  sConfig.OffsetSignedSaturation = DISABLE;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_15;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_16;
+  sConfig.Rank = ADC_REGULAR_RANK_6;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_18;
+  sConfig.Rank = ADC_REGULAR_RANK_7;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_19;
+  sConfig.Rank = ADC_REGULAR_RANK_8;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -542,6 +672,22 @@ void MX_USART3_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -673,7 +819,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 void StartDefaultTask(void const * argument)
 {
   /* init code for LWIP */
-  //MX_LWIP_Init();
+
   /* USER CODE BEGIN 5 */
 	printf("\nGSCS_002 CM4 - Main Task Started\n");
 
@@ -710,8 +856,16 @@ void StartSens_Acq_Task(void const * argument)
 	printf("\nDAQ Task Started\n");
 
 	HAL_TIM_Base_Start(&htim15); //timer used for us delay
-	//printf("GSCS-002 CM4 - TIM15 started\n");
+	// start DMA for
+	printf("GSCS-002 CM4 - Starting ADC1 DMA\n");
 
+	if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*) ADC_ConvertedData,
+	ADC_CONVERTED_DATA_BUFFER_SIZE) != HAL_OK) {
+		printf("GSCS-002 CM4 - ADC1 DMA error\n");
+		Error_Handler();
+	}
+
+	printf("GSCS-002 CM4e - ADC1 DMA configured\n");
 
 	hx711_init(&LOAD_CELL1, LC1_CK_GPIO_Port, LC1_CK_Pin, LC1_DIN_GPIO_Port, LC1_DIN_Pin);
 	hx711_init(&LOAD_CELL2, LC2_CK_GPIO_Port, LC2_CK_Pin, LC2_DIN_GPIO_Port, LC2_DIN_Pin);
@@ -742,7 +896,8 @@ void StartSens_Acq_Task(void const * argument)
 		thrust[2] = hx711_weight(&LOAD_CELL3,1);
 		thrust[3] = hx711_weight(&LOAD_CELL4,1);
 
-		//printf("%.1f %.1f %.1f %.1f \n",thrust[0],thrust[1],thrust[2],thrust[3]);
+		printf("%.1f %.1f %.1f %.1f \n",thrust[0],thrust[1],thrust[2],thrust[3]);
+		//printf("%d\n",ADC_ConvertedData[0]);
 
 	}
   /* USER CODE END StartSens_Acq_Task */
@@ -763,10 +918,13 @@ void Start_CommandRX_Task(void const * argument)
 	//Before entering the loop the ground station must be initialized and sent a udp initialization command
 	/* Infinite loop */
 	osDelay(500);
-	printf("TC Task Started\n");
+	printf("\nTC Task Started\n");
 
 	for (;;) {
 		osDelay(100);
+
+		TC_pck = unpack_SPP_TC();
+
 
 	}
   /* USER CODE END Start_CommandRX_Task */
@@ -783,7 +941,7 @@ void Start_TelemetryTX_Task(void const * argument)
 {
   /* USER CODE BEGIN Start_TelemetryTX_Task */
 	/* Infinite loop */
-	printf("TM Task Started\n");
+	printf("\nTM Task Started\n"); //should start after DAQ task
 
 	primaryHdr TM_hdr;
 	space_packet TM_pkt;
@@ -805,20 +963,23 @@ void Start_TelemetryTX_Task(void const * argument)
 
 
 	for (;;) {
+
 		osDelay(100); // 1 kHz UDP Telemetry
 
-		 TM_pkt.data[0] = thrust[0] >> 24;
-		 TM_pkt.data[1] = thrust[0] >> 16;
-		 TM_pkt.data[2] = thrust[0] >> 8;
-		 TM_pkt.data[3] = thrust[0];
+		SPP_Thrust.f = thrust[0];
 
-		 TM_pkt.pHdr.seqCount = ccsds_counter;
+		TM_pkt.data[0] = (SPP_Thrust.raw.sign << 7)| (SPP_Thrust.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[1] = (SPP_Thrust.raw.exponent << 7)	| (SPP_Thrust.raw.mantissa >> 16);
+		TM_pkt.data[2] = (SPP_Thrust.raw.mantissa >> 8);
+		TM_pkt.data[3] = (SPP_Thrust.raw.mantissa);
 
-		 pack_SPP_TM(TM_pkt);
+		TM_pkt.pHdr.seqCount = ccsds_counter;
 
-		 udpClient_send_spp();
+		pack_SPP_TM(TM_pkt);
 
-		 ccsds_counter++;
+		udpClient_send_spp();
+
+		ccsds_counter++;
 
 	}
   /* USER CODE END Start_TelemetryTX_Task */
@@ -835,9 +996,9 @@ void Start_ActuatorsControl_Task(void const * argument)
 {
   /* USER CODE BEGIN Start_ActuatorsControl_Task */
 
-	osDelay(1000);
+	osDelay(1000); //start after TC -> DAQ -> TM -> ACT
 
-	printf("Actuator Control Task Started\n");
+	//printf("\nActuator Control Task Started\n");
 
 	for (;;) {
 

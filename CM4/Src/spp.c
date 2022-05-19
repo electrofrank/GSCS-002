@@ -37,8 +37,8 @@ ip4_addr_t gw;
 uint8_t IP_ADDRESS[4];
 uint8_t NETMASK_ADDRESS[4];
 uint8_t GATEWAY_ADDRESS[4];
-
 ip_addr_t SERVER_ipaddr;
+
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 		const ip_addr_t *addr, u16_t port) {
@@ -102,6 +102,7 @@ void udpClient_connect(void) {
 	udp_recv(upcb, udp_receive_callback, NULL);
 
 }
+
 
 
 void SPP_TM_hdr_config(primaryHdr TM_hdr) {
