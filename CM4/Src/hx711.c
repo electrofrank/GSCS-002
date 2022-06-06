@@ -1,5 +1,6 @@
 #include "hx711.h"
 #include "hx711Config.h"
+#include "main.h"
 
 #if (_HX711_USE_FREERTOS == 1)
 #include "cmsis_os.h"

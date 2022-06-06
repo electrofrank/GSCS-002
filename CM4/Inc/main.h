@@ -60,8 +60,14 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define LOW_SIDE_SW_1_Pin GPIO_PIN_4
+#define LOW_SIDE_SW_1_GPIO_Port GPIOE
+#define LOW_SIDE_SW_2_Pin GPIO_PIN_5
+#define LOW_SIDE_SW_2_GPIO_Port GPIOE
 #define LC2_DIN_Pin GPIO_PIN_7
 #define LC2_DIN_GPIO_Port GPIOF
+#define LOW_SIDE_SW_4_Pin GPIO_PIN_8
+#define LOW_SIDE_SW_4_GPIO_Port GPIOF
 #define LD1_Pin GPIO_PIN_0
 #define LD1_GPIO_Port GPIOB
 #define LC4_DIN_Pin GPIO_PIN_11

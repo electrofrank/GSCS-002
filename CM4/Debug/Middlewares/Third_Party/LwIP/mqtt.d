@@ -1,5 +1,5 @@
 Middlewares/Third_Party/LwIP/mqtt.o: \
- C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/LwIP/src/apps/mqtt/mqtt.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002/Middlewares/Third_Party/LwIP/src/apps/mqtt/mqtt.c \
  ../../Middlewares/Third_Party/LwIP/src/include/lwip/apps/mqtt.h \
  ../../Middlewares/Third_Party/LwIP/src/include/lwip/apps/mqtt_opts.h \
  ../../Middlewares/Third_Party/LwIP/src/include/lwip/opt.h \
@@ -36,6 +36,8 @@ Middlewares/Third_Party/LwIP/mqtt.o: \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_i2c.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_i2c_ex.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_lptim.h \
+ ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp.h \
+ ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp_ex.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr_ex.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_tim.h \
@@ -154,6 +156,10 @@ Middlewares/Third_Party/LwIP/mqtt.o: \
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_i2c_ex.h:
 
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_lptim.h:
+
+../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp.h:
+
+../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp_ex.h:
 
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr.h:
 

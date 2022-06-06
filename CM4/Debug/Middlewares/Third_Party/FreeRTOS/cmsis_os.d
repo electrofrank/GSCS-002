@@ -1,6 +1,6 @@
 Middlewares/Third_Party/FreeRTOS/cmsis_os.o: \
- C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.c \
- C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
  ../Inc/FreeRTOSConfig.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \
@@ -19,7 +19,7 @@ Middlewares/Third_Party/FreeRTOS/cmsis_os.o: \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
  ../../Drivers/CMSIS/Include/cmsis_gcc.h
 
-C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h:
+C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h:
 
 ../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 

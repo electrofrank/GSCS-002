@@ -9,7 +9,7 @@
 #ifndef SPP_H_
 #define SPP_H_
 
-#define SPP_BYTE_DATA 4
+#define SPP_BYTE_DATA 52 //4 byte for each data (both uint32 or float)
 
 
  typedef struct //SPP PRIMARY HEADER

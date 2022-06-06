@@ -1,5 +1,5 @@
 Middlewares/Third_Party/FreeRTOS/list.o: \
- C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/FreeRTOS/Source/list.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002/Middlewares/Third_Party/FreeRTOS/Source/list.c \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
  ../Inc/FreeRTOSConfig.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \

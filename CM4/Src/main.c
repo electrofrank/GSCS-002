@@ -64,6 +64,8 @@ DMA_HandleTypeDef hdma_adc1;
 LPTIM_HandleTypeDef hlptim1;
 LPTIM_HandleTypeDef hlptim2;
 
+OPAMP_HandleTypeDef hopamp2;
+
 TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim15;
 TIM_HandleTypeDef htim16;
@@ -81,17 +83,57 @@ osSemaphoreId InitSemaphoreHandle;
 
 ///////////  SENSORS GLOBAL VARIABLES /////////////////////////////
 //Load Cell variable
-hx711_t LOAD_CELL1;
-hx711_t LOAD_CELL2;
-hx711_t LOAD_CELL3;
-hx711_t LOAD_CELL4;
-
+hx711_t LOAD_CELL1; //LC1
+hx711_t LOAD_CELL2; //LC2
+hx711_t LOAD_CELL3; //LC3
+hx711_t LOAD_CELL4; //LC4
 
 float thrust[4];
 
-//Analog sensors variables
+float total_thrust;
 
+#define SAMPLE_TIME 10 //ms
+
+extern int load_cells_tare_flag = 0;
+
+//CURRENT READING FROM IGNITION SMART SWITCH
+float Ign_curr = 0;
+
+//FLOW METERS
+int cnt1=0,prev_cnt1=0,dcnt1=0,totalcnt1 = 0;
+int cnt2,prev_cnt2,dcnt2 = 0,totalcnt2 = 0;
+float totalvolume1 = 0;
+float totalvolume2 = 0;
+float vol_flow1 = 0; //MF1
+float vol_flow2 = 0; //MF2
+float prev_totalvolume1 = 0;
+float prev_totalvolume2 = 0;
+
+//TMC turbine flow meter
+uint32_t IC_Val1 = 0;
+uint32_t IC_Val2 = 0;
+uint32_t Difference = 0;
+int Is_First_Captured = 0;
+
+/* Measure Frequency */
+#define TIMCLOCK   200000000
+#define PRESCALER  19999
+
+float frequency = 0;
+
+
+//Analog sensors variables
 ALIGN_32BYTES(static uint16_t ADC_ConvertedData[ADC_CONVERTED_DATA_BUFFER_SIZE]);
+
+#define PRESS_LOX_SENSITIVIY  3750// bar/A
+#define PRESS_KERO_SENSITIVITY 3750
+
+float pressure_LOX = 0; //PS1
+float pressure_KERO = 0; //PS2
+float pressure_CHAMBER = 0; //PS3
+
+//Status Variables
+int Valve1_Status,Valve2_Status;
 
 
 /////////// NETWORK INTERFACE VARIABLES ////////////////////
@@ -112,6 +154,7 @@ static void MX_ADC1_Init(void);
 static void MX_DMA_Init(void);
 static void MX_LPTIM1_Init(void);
 static void MX_LPTIM2_Init(void);
+static void MX_OPAMP2_Init(void);
 void StartDefaultTask(void const * argument);
 void StartSens_Acq_Task(void const * argument);
 void Start_CommandRX_Task(void const * argument);
@@ -175,6 +218,7 @@ int main(void)
   MX_DMA_Init();
   MX_LPTIM1_Init();
   MX_LPTIM2_Init();
+  MX_OPAMP2_Init();
   /* USER CODE BEGIN 2 */
 
 	MX_USART3_UART_Init(); //init uart3 also on CM4
@@ -355,6 +399,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_16;
   sConfig.Rank = ADC_REGULAR_RANK_6;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -363,6 +408,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_18;
   sConfig.Rank = ADC_REGULAR_RANK_7;
+  sConfig.SamplingTime = ADC_SAMPLETIME_387CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -450,6 +496,42 @@ static void MX_LPTIM2_Init(void)
   /* USER CODE BEGIN LPTIM2_Init 2 */
 
   /* USER CODE END LPTIM2_Init 2 */
+
+}
+
+/**
+  * @brief OPAMP2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_OPAMP2_Init(void)
+{
+
+  /* USER CODE BEGIN OPAMP2_Init 0 */
+
+  /* USER CODE END OPAMP2_Init 0 */
+
+  /* USER CODE BEGIN OPAMP2_Init 1 */
+
+  /* USER CODE END OPAMP2_Init 1 */
+  hopamp2.Instance = OPAMP2;
+  hopamp2.Init.Mode = OPAMP_PGA_MODE;
+  hopamp2.Init.NonInvertingInput = OPAMP_NONINVERTINGINPUT_IO0;
+  hopamp2.Init.PowerMode = OPAMP_POWERMODE_NORMAL;
+  hopamp2.Init.PgaConnect = OPAMP_PGA_CONNECT_INVERTINGINPUT_NO;
+  hopamp2.Init.PgaGain = OPAMP_PGA_GAIN_16_OR_MINUS_15;
+  hopamp2.Init.UserTrimming = OPAMP_TRIMMING_FACTORY;
+  if (HAL_OPAMP_Init(&hopamp2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN OPAMP2_Init 2 */
+
+  if (HAL_OPAMP_Start(&hopamp2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE END OPAMP2_Init 2 */
 
 }
 
@@ -603,17 +685,31 @@ static void MX_TIM16_Init(void)
 
   /* USER CODE END TIM16_Init 0 */
 
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
   /* USER CODE BEGIN TIM16_Init 1 */
 
   /* USER CODE END TIM16_Init 1 */
   htim16.Instance = TIM16;
-  htim16.Init.Prescaler = 200 - 1;
+  htim16.Init.Prescaler = 20000 - 1;
   htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim16.Init.Period = 65535 - 1;
   htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim16.Init.RepetitionCounter = 0;
   htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim16, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -682,7 +778,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
@@ -697,12 +793,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_1_Pin|LOW_SIDE_SW_2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LOW_SIDE_SW_4_GPIO_Port, LOW_SIDE_SW_4_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LC4_CK_Pin|LD3_Pin, GPIO_PIN_RESET);
@@ -716,11 +819,25 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, IGN_OUT_Pin|LOW_SIDE_SW_3_Pin|LC2_CK_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pins : LOW_SIDE_SW_1_Pin LOW_SIDE_SW_2_Pin */
+  GPIO_InitStruct.Pin = LOW_SIDE_SW_1_Pin|LOW_SIDE_SW_2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
   /*Configure GPIO pin : LC2_DIN_Pin */
   GPIO_InitStruct.Pin = LC2_DIN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(LC2_DIN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LOW_SIDE_SW_4_Pin */
+  GPIO_InitStruct.Pin = LOW_SIDE_SW_4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LOW_SIDE_SW_4_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LD1_Pin LC4_CK_Pin LD3_Pin */
   GPIO_InitStruct.Pin = LD1_Pin|LC4_CK_Pin|LD3_Pin;
@@ -807,6 +924,92 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 
 }
 
+void init_loadcells() {
+	hx711_init(&LOAD_CELL1, LC1_CK_GPIO_Port, LC1_CK_Pin, LC1_DIN_GPIO_Port, LC1_DIN_Pin);
+	hx711_init(&LOAD_CELL2, LC2_CK_GPIO_Port, LC2_CK_Pin, LC2_DIN_GPIO_Port, LC2_DIN_Pin);
+	hx711_init(&LOAD_CELL3, LC3_CK_GPIO_Port, LC3_CK_Pin, LC3_DIN_GPIO_Port, LC3_DIN_Pin);
+	hx711_init(&LOAD_CELL4, LC4_CK_GPIO_Port, LC4_CK_Pin, LC4_DIN_GPIO_Port, LC4_DIN_Pin);
+
+
+	hx711_coef_set(&LOAD_CELL1, -45); // LC1
+	hx711_coef_set(&LOAD_CELL2, -44.5 ); // set calibration coefficent
+	hx711_coef_set(&LOAD_CELL3, -44.5); // set calibration coefficent
+	hx711_coef_set(&LOAD_CELL4, -44.5); // set calibration coefficent
+
+	hx711_tare(&LOAD_CELL1, 10); //read offset
+	hx711_tare(&LOAD_CELL2, 10); //read offset
+	hx711_tare(&LOAD_CELL3, 10); //read offset
+	hx711_tare(&LOAD_CELL4, 10); //read offset
+}
+
+void compute_flow() {
+
+	prev_cnt1 = cnt1;
+	prev_cnt2 = cnt2;
+
+	cnt1 = LPTIM1->CNT; //
+
+	cnt2 = LPTIM2->CNT; //kerosene flow meter timer input
+
+	//2.5mL/P
+
+	dcnt1 = cnt1 - prev_cnt1;
+	dcnt2 = cnt2 - prev_cnt2;
+
+	totalcnt1 += dcnt1;
+	totalcnt2 += dcnt2;
+
+	prev_totalvolume1 = totalvolume1;
+	prev_totalvolume2 = totalvolume2;
+
+
+	totalvolume1 = ((totalcnt1 *(1/324.71))); //in Liters (LOX)
+
+	totalvolume2 = ((totalcnt2*(1/800.111))); //in Liters (KEROSENE)
+
+
+	vol_flow1 = (totalvolume1 - prev_totalvolume1)*(1000.0/SAMPLE_TIME);
+
+	vol_flow2 = (totalvolume2 - prev_totalvolume2)*(1000.0/SAMPLE_TIME);
+
+
+	printf("%.3f Liters - %.3f L/s \N",totalvolume1,vol_flow1);
+
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+	{
+		if (Is_First_Captured==0) // if the first rising edge is not captured
+		{
+			IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
+			Is_First_Captured = 1;  // set the first captured as true
+		}
+
+		else   // If the first rising edge is captured, now we will capture the second edge
+		{
+			IC_Val2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);  // read second value
+
+			if (IC_Val2 > IC_Val1)
+			{
+				Difference = IC_Val2-IC_Val1;
+			}
+
+			else if (IC_Val1 > IC_Val2)
+			{
+				Difference = (0xffffffff - IC_Val1) + IC_Val2;
+			}
+
+			float refClock = TIMCLOCK/(PRESCALER);
+
+			frequency = refClock/Difference;
+
+			__HAL_TIM_SET_COUNTER(htim, 0);  // reset the counter
+			Is_First_Captured = 0; // set it back to false
+		}
+	}
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -819,7 +1022,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 void StartDefaultTask(void const * argument)
 {
   /* init code for LWIP */
-
   /* USER CODE BEGIN 5 */
 	printf("\nGSCS_002 CM4 - Main Task Started\n");
 
@@ -856,48 +1058,55 @@ void StartSens_Acq_Task(void const * argument)
 	printf("\nDAQ Task Started\n");
 
 	HAL_TIM_Base_Start(&htim15); //timer used for us delay
-	// start DMA for
-	printf("GSCS-002 CM4 - Starting ADC1 DMA\n");
 
-	if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*) ADC_ConvertedData,
-	ADC_CONVERTED_DATA_BUFFER_SIZE) != HAL_OK) {
+	HAL_TIM_IC_Start_IT(&htim16, TIM_CHANNEL_1);
+
+
+	if(HAL_LPTIM_Counter_Start(&hlptim1,0XFFFF) != HAL_OK) printf("Error Starting LPTIM1\n");
+	if(HAL_LPTIM_Counter_Start(&hlptim2,0XFFFF) != HAL_OK) printf("Error Starting LPTIM2\n");
+
+	if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*) ADC_ConvertedData,ADC_CONVERTED_DATA_BUFFER_SIZE) != HAL_OK) {
 		printf("GSCS-002 CM4 - ADC1 DMA error\n");
 		Error_Handler();
-	}
-
-	printf("GSCS-002 CM4e - ADC1 DMA configured\n");
-
-	hx711_init(&LOAD_CELL1, LC1_CK_GPIO_Port, LC1_CK_Pin, LC1_DIN_GPIO_Port, LC1_DIN_Pin);
-	hx711_init(&LOAD_CELL2, LC2_CK_GPIO_Port, LC2_CK_Pin, LC2_DIN_GPIO_Port, LC2_DIN_Pin);
-	hx711_init(&LOAD_CELL3, LC3_CK_GPIO_Port, LC3_CK_Pin, LC3_DIN_GPIO_Port, LC3_DIN_Pin);
-	hx711_init(&LOAD_CELL4, LC4_CK_GPIO_Port, LC4_CK_Pin, LC4_DIN_GPIO_Port, LC4_DIN_Pin);
+		}
 
 
-	hx711_coef_set(&LOAD_CELL1, -15.0026); // set calibration coefficent
-	hx711_coef_set(&LOAD_CELL2, -15.0026); // set calibration coefficent
-	hx711_coef_set(&LOAD_CELL3, -15.0026); // set calibration coefficent
-	hx711_coef_set(&LOAD_CELL4, -15.0026); // set calibration coefficent
-
-	hx711_tare(&LOAD_CELL1, 10); //read offset
-	hx711_tare(&LOAD_CELL2, 10); //read offset
-	hx711_tare(&LOAD_CELL3, 10); //read offset
-	hx711_tare(&LOAD_CELL4, 10); //read offset
-
-	printf("GSCS-002 CM4 - HX711 Initialized\n");
-	// Start ADC Conversion
+	init_loadcells();
 
 	/* Infinite loop */
 	for (;;) {
 
-		osDelay(100);
+		osDelay(SAMPLE_TIME);
 
 		thrust[0] = hx711_weight(&LOAD_CELL1,1);
 		thrust[1] = hx711_weight(&LOAD_CELL2,1);
 		thrust[2] = hx711_weight(&LOAD_CELL3,1);
 		thrust[3] = hx711_weight(&LOAD_CELL4,1);
 
-		printf("%.1f %.1f %.1f %.1f \n",thrust[0],thrust[1],thrust[2],thrust[3]);
+		total_thrust = thrust[0]+thrust[1]+thrust[2]+thrust[3];
+
+		compute_flow();
+
+		pressure_LOX = (((ADC_ConvertedData[2]*(3.3/65535))/165.0) - 0.004)*PRESS_LOX_SENSITIVIY;
+
+		pressure_KERO = (((ADC_ConvertedData[4]*(3.3/65535))/165.0) - 0.004)*PRESS_KERO_SENSITIVITY;
+
+		pressure_CHAMBER = (ADC_ConvertedData[0]*(3.3/65535))/165.0;
+
+		//LOX_FLOW = ADC_ConvertedData[5]*(3.3/65535);
+
+		Ign_curr = ((ADC_ConvertedData[3]*(3.3/65535))/400)*21000;// (Vadc/Rsense)*Kis
+
+		Valve1_Status = HAL_GPIO_ReadPin(GPIOE,LOW_SIDE_SW_2_Pin);
+		Valve2_Status = HAL_GPIO_ReadPin(GPIOE,LOW_SIDE_SW_1_Pin);
+
+		//printf("%6.1f %6.1f %6.1f %6.1f - %6.1f\n",thrust[0],thrust[1],thrust[2],thrust[3],total_thrust);
 		//printf("%d\n",ADC_ConvertedData[0]);
+		//printf("%.1f\n",Ign_curr);
+		//printf(" Pressure KERO: %2.1f - Pressure LOX: %2.1f \n",pressure_KERO,pressure_LOX);
+		//printf("%.1f\n",LOX_FLOW);
+		//printf("%4.2f \n",frequency);
+
 
 	}
   /* USER CODE END StartSens_Acq_Task */
@@ -917,13 +1126,16 @@ void Start_CommandRX_Task(void const * argument)
 
 	//Before entering the loop the ground station must be initialized and sent a udp initialization command
 	/* Infinite loop */
-	osDelay(500);
+	osDelay(5000);
 	printf("\nTC Task Started\n");
+
 
 	for (;;) {
 		osDelay(100);
 
-		TC_pck = unpack_SPP_TC();
+		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+
+		unpack_SPP_TC();
 
 
 	}
@@ -959,19 +1171,107 @@ void Start_TelemetryTX_Task(void const * argument)
 
 	unsigned int ccsds_counter = 0;
 
-	myfloat SPP_Thrust;
+	myfloat SPP_IGN_curr;
+
+	myfloat SPP_Thrust1;
+	myfloat SPP_Thrust2;
+	myfloat SPP_Thrust3;
+	myfloat SPP_Thrust4;
+
+	myfloat SPP_ThrustTOT;
+
+	myfloat SPP_MF1;
+	myfloat SPP_MF2;
+
+	myfloat SPP_PS_KERO;
+	myfloat SPP_PS_LOX;
+	myfloat SPP_PS_CHAMBER;
 
 
 	for (;;) {
 
-		osDelay(100); // 1 kHz UDP Telemetry
+		SPP_IGN_curr.f = Ign_curr;
 
-		SPP_Thrust.f = thrust[0];
+		SPP_Thrust1.f = thrust[0];
+		SPP_Thrust2.f = thrust[1];
+		SPP_Thrust3.f = thrust[2];
+		SPP_Thrust4.f = thrust[3];
 
-		TM_pkt.data[0] = (SPP_Thrust.raw.sign << 7)| (SPP_Thrust.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
-		TM_pkt.data[1] = (SPP_Thrust.raw.exponent << 7)	| (SPP_Thrust.raw.mantissa >> 16);
-		TM_pkt.data[2] = (SPP_Thrust.raw.mantissa >> 8);
-		TM_pkt.data[3] = (SPP_Thrust.raw.mantissa);
+		SPP_ThrustTOT.f = total_thrust;
+
+		SPP_MF1.f = vol_flow1;
+		SPP_MF2.f = vol_flow2;
+
+		SPP_PS_KERO.f = pressure_KERO;
+		SPP_PS_LOX.f = pressure_LOX;
+		SPP_PS_CHAMBER.f = pressure_CHAMBER;
+
+		TM_pkt.data[0] = (SPP_IGN_curr.raw.sign << 7)| (SPP_IGN_curr.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[1] = (SPP_IGN_curr.raw.exponent << 7)	| (SPP_IGN_curr.raw.mantissa >> 16);
+		TM_pkt.data[2] = (SPP_IGN_curr.raw.mantissa >> 8);
+		TM_pkt.data[3] = (SPP_IGN_curr.raw.mantissa);
+
+		TM_pkt.data[4] = (SPP_Thrust1.raw.sign << 7)| (SPP_Thrust1.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[5] = (SPP_Thrust1.raw.exponent << 7)	| (SPP_Thrust1.raw.mantissa >> 16);
+		TM_pkt.data[6] = (SPP_Thrust1.raw.mantissa >> 8);
+		TM_pkt.data[7] = (SPP_Thrust1.raw.mantissa);
+
+		TM_pkt.data[8] = (SPP_Thrust2.raw.sign << 7)| (SPP_Thrust2.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[9] = (SPP_Thrust2.raw.exponent << 7)	| (SPP_Thrust2.raw.mantissa >> 16);
+		TM_pkt.data[10] = (SPP_Thrust2.raw.mantissa >> 8);
+		TM_pkt.data[11] = (SPP_Thrust2.raw.mantissa);
+
+		TM_pkt.data[12] = (SPP_Thrust3.raw.sign << 7)| (SPP_Thrust3.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[13] = (SPP_Thrust3.raw.exponent << 7)	| (SPP_Thrust3.raw.mantissa >> 16);
+		TM_pkt.data[14] = (SPP_Thrust3.raw.mantissa >> 8);
+		TM_pkt.data[15] = (SPP_Thrust3.raw.mantissa);
+
+		TM_pkt.data[16] = (SPP_Thrust4.raw.sign << 7)| (SPP_Thrust4.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[17] = (SPP_Thrust4.raw.exponent << 7)	| (SPP_Thrust4.raw.mantissa >> 16);
+		TM_pkt.data[18] = (SPP_Thrust4.raw.mantissa >> 8);
+		TM_pkt.data[19] = (SPP_Thrust4.raw.mantissa);
+
+		TM_pkt.data[20] = (SPP_MF1.raw.sign << 7)| (SPP_MF1.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[21] = (SPP_MF1.raw.exponent << 7)	| (SPP_MF1.raw.mantissa >> 16);
+		TM_pkt.data[22] = (SPP_MF1.raw.mantissa >> 8);
+		TM_pkt.data[23] = (SPP_MF1.raw.mantissa);
+
+		TM_pkt.data[24] = (SPP_MF2.raw.sign << 7)| (SPP_MF2.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[25] = (SPP_MF2.raw.exponent << 7)	| (SPP_MF2.raw.mantissa >> 16);
+		TM_pkt.data[26] = (SPP_MF2.raw.mantissa >> 8);
+		TM_pkt.data[27] = (SPP_MF2.raw.mantissa);
+
+
+		TM_pkt.data[28] = (SPP_PS_KERO.raw.sign << 7)| (SPP_PS_KERO.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[29] = (SPP_PS_KERO.raw.exponent << 7)	| (SPP_PS_KERO.raw.mantissa >> 16);
+		TM_pkt.data[30] = (SPP_PS_KERO.raw.mantissa >> 8);
+		TM_pkt.data[31] = (SPP_PS_KERO.raw.mantissa);
+
+		TM_pkt.data[32] = (SPP_PS_LOX.raw.sign << 7)| (SPP_PS_LOX.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[33] = (SPP_PS_LOX.raw.exponent << 7)	| (SPP_PS_LOX.raw.mantissa >> 16);
+		TM_pkt.data[34] = (SPP_PS_LOX.raw.mantissa >> 8);
+		TM_pkt.data[35] = (SPP_PS_LOX.raw.mantissa);
+
+		TM_pkt.data[36] = (SPP_PS_CHAMBER.raw.sign << 7)| (SPP_PS_CHAMBER.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[37] = (SPP_PS_CHAMBER.raw.exponent << 7)	| (SPP_PS_CHAMBER.raw.mantissa >> 16);
+		TM_pkt.data[38] = (SPP_PS_CHAMBER.raw.mantissa >> 8);
+		TM_pkt.data[39] = (SPP_PS_CHAMBER.raw.mantissa);
+
+		TM_pkt.data[40] = Valve1_Status >> 24; //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[41] = Valve1_Status >> 16;
+		TM_pkt.data[42] = Valve1_Status >> 8;
+		TM_pkt.data[43] = Valve1_Status;
+
+		TM_pkt.data[44] = Valve2_Status >> 24; //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[45] = Valve2_Status >> 16;
+		TM_pkt.data[46] = Valve2_Status >> 8;
+		TM_pkt.data[47] = Valve2_Status;
+
+		TM_pkt.data[48] = (SPP_ThrustTOT.raw.sign << 7)| (SPP_ThrustTOT.raw.exponent >> 1); //& (vartest.raw.exponent >> 1);
+		TM_pkt.data[49] = (SPP_ThrustTOT.raw.exponent << 7)	| (SPP_ThrustTOT.raw.mantissa >> 16);
+		TM_pkt.data[50] = (SPP_ThrustTOT.raw.mantissa >> 8);
+		TM_pkt.data[51] = (SPP_ThrustTOT.raw.mantissa);
+
 
 		TM_pkt.pHdr.seqCount = ccsds_counter;
 
@@ -980,6 +1280,9 @@ void Start_TelemetryTX_Task(void const * argument)
 		udpClient_send_spp();
 
 		ccsds_counter++;
+
+		osDelay(SAMPLE_TIME); // 1 kHz UDP Telemetry
+
 
 	}
   /* USER CODE END Start_TelemetryTX_Task */

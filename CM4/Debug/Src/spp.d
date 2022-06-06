@@ -31,6 +31,8 @@ Src/spp.o: ../Src/spp.c ../Inc/spp.h ../Inc/main.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_i2c.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_i2c_ex.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_lptim.h \
+ ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp.h \
+ ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp_ex.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr_ex.h \
  ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_tim.h \
@@ -94,7 +96,8 @@ Src/spp.o: ../Src/spp.c ../Inc/spp.h ../Inc/main.h \
  ../../Middlewares/Third_Party/LwIP/src/include/lwip/ip.h \
  ../../Middlewares/Third_Party/LwIP/src/include/lwip/ip6.h \
  ../../Middlewares/Third_Party/LwIP/src/include/lwip/prot/ip.h \
- ../../Middlewares/Third_Party/LwIP/src/include/lwip/prot/udp.h
+ ../../Middlewares/Third_Party/LwIP/src/include/lwip/prot/udp.h \
+ ../Inc/main.h ../Inc/hx711.h
 
 ../Inc/spp.h:
 
@@ -163,6 +166,10 @@ Src/spp.o: ../Src/spp.c ../Inc/spp.h ../Inc/main.h \
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_i2c_ex.h:
 
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_lptim.h:
+
+../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp.h:
+
+../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_opamp_ex.h:
 
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr.h:
 
@@ -293,3 +300,7 @@ Src/spp.o: ../Src/spp.c ../Inc/spp.h ../Inc/main.h \
 ../../Middlewares/Third_Party/LwIP/src/include/lwip/prot/ip.h:
 
 ../../Middlewares/Third_Party/LwIP/src/include/lwip/prot/udp.h:
+
+../Inc/main.h:
+
+../Inc/hx711.h:

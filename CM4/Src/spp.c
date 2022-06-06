@@ -17,6 +17,11 @@
 
 /* USER CODE BEGIN 0 */
 #include "lwip/udp.h"
+#include "main.h"
+#include "hx711.h"
+
+#define UDP_TM_PORT 10015 // TELEMETRY
+#define UDP_TC_PORT 10025 // TELECOMMAND
 
 struct udp_pcb *upcb;
 struct udp_pcb *upcb2;
@@ -39,21 +44,19 @@ uint8_t NETMASK_ADDRESS[4];
 uint8_t GATEWAY_ADDRESS[4];
 ip_addr_t SERVER_ipaddr;
 
+hx711_t LOAD_CELL1; //LC1
+hx711_t LOAD_CELL2; //LC2
+hx711_t LOAD_CELL3; //LC3
+hx711_t LOAD_CELL4; //LC4
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 		const ip_addr_t *addr, u16_t port) {
 
-	//Verify the data dimension
-	int RX_COMMAND_LENGHT = (int) p->len;
+	/* Copy the data from the pbuf */ //
+	memcpy(UDP_RX_BUFFER, (char*)p->payload,p->len);
 
-	if (RX_COMMAND_LENGHT == 8)
-		/* Copy the data from the pbuf */
-		strncpy(UDP_RX_BUFFER, (char*) p->payload, 8);
-
-	else {
-		printf("Command Lenght Error : %d \n", RX_COMMAND_LENGHT);
-	}
-	/* Free receive pbuf */
+	SPP_TC_len = (int) p->len;
+	SPP_NEW_TC = 1; //
 
 	pbuf_free(p);
 }
@@ -87,19 +90,22 @@ void udpClient_connect(void) {
 
 	/* 1. Create a new UDP control block  */
 	upcb = udp_new();
+	upcb2 = udp_new();
 
-	/* Bind the block to module's IP and port */
+		/* Bind to local IP and local port */
 
-	if (udp_bind(upcb, &ipaddr, 50000) == ERR_USE)
-		printf("Error binding UDP1\n");
-	else
-		//printf("UDP module bind on Port 50000 for Telemetry TX\n");
+		if (udp_bind(upcb, IP_ANY_TYPE, 5005) == ERR_USE)
+			printf("Error binding UDP\n");
+		else
+			printf("UDP bind on Port %d for TM trasmission \n", 5005);
 
-	/* configure destination IP address and port for telemetry server */
-	udp_connect(upcb, &SERVER_ipaddr, 10015);
+		/* configure destination IP address and port for telemetry server */
+		udp_connect(upcb, &SERVER_ipaddr, UDP_TM_PORT);
 
-	//register udp receiver callback on upcb2
-	udp_recv(upcb, udp_receive_callback, NULL);
+		udp_bind(upcb2, IP_ANY_TYPE, UDP_TC_PORT); //port to receive TC
+
+		//register udp receiver callback on upcb2
+		udp_recv(upcb2, udp_receive_callback, NULL);
 
 }
 
@@ -118,7 +124,8 @@ void SPP_TM_hdr_config(primaryHdr TM_hdr) {
 void unpack_SPP_TC() {
 
 	if (SPP_NEW_TC) {
-		SPP_NEW_TC = 0;
+		SPP_NEW_TC = 0; //reset new packet flag
+
 	primaryHdr TC_pck_hdr;
 	space_packet TC_pck;
 
@@ -130,21 +137,21 @@ void unpack_SPP_TC() {
 	TC_pck_hdr.seqCount = ((UDP_RX_BUFFER[2] & 0x3F)<<6)|UDP_RX_BUFFER[3];
 	TC_pck_hdr.data_len = UDP_RX_BUFFER[4] << 8 | UDP_RX_BUFFER[5];
 
-/*  printf("\nUnpacking SPP TC packet...\n");
+//	printf("\nUnpacking SPP TC packet...\n");
+//
+//	for(int k = 0; k < SPP_TC_len; k++) {
+//		printf("%x ",UDP_RX_BUFFER[k]); //print byte in hex
+//	}
+//	printf("\n");
+//
+//	printf("SPP Version: %d\n",TC_pck_hdr.pkt_ver);
+//	printf(TC_pck_hdr.type == 1 ? "SPP type: TC\n" : "SPP type: TM\n");
+//	printf("SPP APID: %d\n",TC_pck_hdr.APID);
+//	printf("SPP Seq flag: %d\n",TC_pck_hdr.seqFlag);
+//	printf("SPP Seq count: %d\n",TC_pck_hdr.seqCount);
+//	printf("SPP data len: %d\n",TC_pck_hdr.data_len);
 
-	for(int k = 0; k < SPP_len; k++) {
-		printf("%x ",UDP_RX_BUFFER[k]); //print byte in hex
-	}
-	printf("\n");
 
-	printf("SPP Version: %d\n",TC_pck_hdr.pkt_ver);
-	printf(TC_pck_hdr.type == 1 ? "SPP type: TC\n" : "SPP type: TM\n");
-	printf("SPP APID: %d\n",TC_pck_hdr.APID);
-	printf("SPP Seq flag: %d\n",TC_pck_hdr.seqFlag);
-	printf("SPP Seq count: %d\n",TC_pck_hdr.seqCount);
-	printf("SPP data len: %d\n",TC_pck_hdr.data_len);
-
-*/
 
 	//fill spp primary header
 	TC_pck.pHdr = TC_pck_hdr;
@@ -162,7 +169,6 @@ void unpack_SPP_TC() {
 	}
 
 	else {}
-
 }
 
 void pack_SPP_TM(space_packet tm_pkt) {
@@ -189,30 +195,65 @@ void parse_SPP_TC(space_packet pkt) {
 
 //execute action depending on the SPP packet APID and content
 //////////////////// IGNITION COMMAND /////////////////////////////
+//printf("Parsing TC\n");
 
 if (((pkt.data[0] << 8) | pkt.data[1]) == 200) {
 		HAL_GPIO_WritePin(GPIOD,IGN_OUT_Pin, SET);
-		osDelay(2000);
+		osDelay(2000); //blocking, not good
 		HAL_GPIO_WritePin(GPIOD,IGN_OUT_Pin, RESET);
 	}
 else HAL_GPIO_WritePin(GPIOD,IGN_OUT_Pin, RESET);
 
 //GAS SOLENOID 1 ON COMMAND
-if (((pkt.data[0] << 8) | pkt.data[1]) == 207) {}
-	//HAL_GPIO_WritePin(WSS_SSR4_GPIO_Port, WSS_SSR4_Pin, SET);
+if (((pkt.data[0] << 8) | pkt.data[1]) == 207)
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_2_Pin ,GPIO_PIN_SET);//solenoid 1 on command
 
 //GAS SOLENOID 1 OFF COMMAND
-if (((pkt.data[0] << 8) | pkt.data[1]) == 208) {}
-	//HAL_GPIO_WritePin(WSS_SSR4_GPIO_Port, WSS_SSR4_Pin, RESET);
+if (((pkt.data[0] << 8) | pkt.data[1]) == 208)
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_2_Pin ,GPIO_PIN_RESET);
 
 //GAS SOLENOID 2 ON COMMAND
-if (((pkt.data[0] << 8) | pkt.data[1]) == 209) {}
-	//HAL_GPIO_WritePin(WSS_SSR4_GPIO_Port, WSS_SSR4_Pin, SET);
+if (((pkt.data[0] << 8) | pkt.data[1]) == 209)
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_1_Pin ,GPIO_PIN_SET);
 
 //GAS SOLENOID 2 OFF COMMAND
-if (((pkt.data[0] << 8) | pkt.data[1]) == 210) {}
-	//HAL_GPIO_WritePin(WSS_SSR4_GPIO_Port, WSS_SSR4_Pin, RESET);
+if (((pkt.data[0] << 8) | pkt.data[1]) == 210)
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_1_Pin ,GPIO_PIN_RESET);
 
 
+//START STATIC TEST FIRE (IGNITION + VALVE 1 AND VALVE 2)
+if (((pkt.data[0] << 8) | pkt.data[1]) == 26) {
 
+	HAL_GPIO_WritePin(GPIOD,IGN_OUT_Pin, SET);
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_2_Pin ,GPIO_PIN_SET);//solenoid 1 on command
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_1_Pin ,GPIO_PIN_SET);//solenoid 2 on command
+	osDelay(2000); //blocking, not good
+	HAL_GPIO_WritePin(GPIOD,IGN_OUT_Pin, RESET);
+}
+
+if (((pkt.data[0] << 8) | pkt.data[1]) == 27) {
+
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_2_Pin ,GPIO_PIN_RESET);//solenoid 1 on command
+	HAL_GPIO_WritePin(GPIOE, LOW_SIDE_SW_1_Pin ,GPIO_PIN_RESET);//solenoid 2 on command
+	}
+
+if (((pkt.data[0] << 8) | pkt.data[1]) == 28) {
+
+//	hx711_init(&LOAD_CELL1, LC1_CK_GPIO_Port, LC1_CK_Pin, LC1_DIN_GPIO_Port, LC1_DIN_Pin);
+//	hx711_init(&LOAD_CELL2, LC2_CK_GPIO_Port, LC2_CK_Pin, LC2_DIN_GPIO_Port, LC2_DIN_Pin);
+//	hx711_init(&LOAD_CELL3, LC3_CK_GPIO_Port, LC3_CK_Pin, LC3_DIN_GPIO_Port, LC3_DIN_Pin);
+//	hx711_init(&LOAD_CELL4, LC4_CK_GPIO_Port, LC4_CK_Pin, LC4_DIN_GPIO_Port, LC4_DIN_Pin);
+//
+//
+//	hx711_coef_set(&LOAD_CELL1, -45); // LC1
+//	hx711_coef_set(&LOAD_CELL2, -44.5 ); // set calibration coefficent
+//	hx711_coef_set(&LOAD_CELL3, -44.5); // set calibration coefficent
+//	hx711_coef_set(&LOAD_CELL4, -44.5); // set calibration coefficent
+//
+//	hx711_tare(&LOAD_CELL1, 10); //read offset
+//	hx711_tare(&LOAD_CELL2, 10); //read offset
+//	hx711_tare(&LOAD_CELL3, 10); //read offset
+//	hx711_tare(&LOAD_CELL4, 10); //read offset
+
+	}
 }

@@ -1,5 +1,5 @@
 Middlewares/Third_Party/FreeRTOS/queue.o: \
- C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002-master/Middlewares/Third_Party/FreeRTOS/Source/queue.c \
+ C:/Users/Francesco\ Gambino/OneDrive/Desktop/GSCS-002/Middlewares/Third_Party/FreeRTOS/Source/queue.c \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
  ../Inc/FreeRTOSConfig.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \

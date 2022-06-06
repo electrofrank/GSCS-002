@@ -148,7 +148,6 @@ Error_Handler();
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
   RetargetInit(&huart3);
-  printf("GSCS-002 Main Core Started - F.Gambino 2021\n");
 
   /* CM7 takes HW semaphore 0 to inform CMm that he finished his job */
   HAL_HSEM_FastTake(HSEM_ID_0);
@@ -393,6 +392,8 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
+	 printf("GSCS-002 CM7 Started - F.Gambino 2022\n");
+
   /* Infinite loop */
 
 /*Add Delay between HSEM Release and next Take*/
